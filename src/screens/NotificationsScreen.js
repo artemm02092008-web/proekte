@@ -1,14 +1,31 @@
-import React, { useState } from "react";
+import { useRouter } from "expo-router";
 import {
+  addDoc,
+  arrayUnion,
+  collection,
+  deleteDoc,
+  doc, // <-- ДОБАВЛЕНО
+  getDoc,
+  onSnapshot,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
   StyleSheet,
   Text,
-  View,
   TouchableOpacity,
-  ScrollView,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Path, Circle } from "react-native-svg";
-import { useRouter } from "expo-router";
+import Svg, { Circle, Path } from "react-native-svg";
+import { AnimatedLogo } from "../components/AnimatedLogo";
+import { auth, db } from "../firebase/config";
+import { useTranslation } from "../hooks/useTranslation";
 
 const COLORS = {
   bg: "#1C1C1E",
@@ -22,8 +39,156 @@ const COLORS = {
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const [requestAction, setRequestAction] = useState("none");
+  const { t } = useTranslation();
+
   const [showMenu, setShowMenu] = useState(false);
+  const [requests, setRequests] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 1. ЗАГРУЗКА ЗАПРОСОВ В ДРУЗЬЯ
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const q = query(
+      collection(db, "friend_requests"),
+      where("to", "==", auth.currentUser.uid),
+      where("status", "==", "pending")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const reqs = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setRequests(reqs);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. ЗАГРУЗКА РЕАЛЬНЫХ УВЕДОМЛЕНИЙ
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const q = query(
+      collection(db, "notifications"),
+      where("userId", "==", auth.currentUser.uid)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notifs = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setNotifications(notifs);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 3. ОБРАБОТКА ЗАПРОСА В ДРУЗЬЯ
+  const handleRequest = async (requestId, action) => {
+    try {
+      await updateDoc(doc(db, "friend_requests", requestId), {
+        status: action === "accepted" ? "accepted" : "declined",
+      });
+      setRequests((prev) => prev.filter((r) => r.id !== requestId));
+    } catch (error) {
+      console.log(error);
+      Alert.alert(
+        t({
+          ru: "Ошибка",
+          en: "Error",
+          es: "Error",
+          fr: "Erreur",
+          de: "Fehler",
+        }),
+        t({
+          ru: "Не удалось обработать запрос",
+          en: "Could not process request",
+          es: "No se pudo procesar la solicitud",
+          fr: "Impossible de traiter la demande",
+          de: "Anfrage konnte nicht bearbeitet werden",
+        })
+      );
+    }
+  };
+
+  // 4. ПРИНЯТЬ ПРИГЛАШЕНИЕ НА СЕРВЕР
+  const handleAcceptInvite = async (notification) => {
+    try {
+      const userId = auth.currentUser.uid;
+
+      // 1. Получаем данные оригинального сервера
+      const serverRef = doc(db, "servers", notification.serverId);
+      const serverSnap = await getDoc(serverRef);
+
+      if (!serverSnap.exists()) {
+        Alert.alert("Ошибка", "Сервер не найден");
+        return;
+      }
+
+      const serverData = serverSnap.data();
+
+      // 2. Добавляем себя в список участников ОРИГИНАЛЬНОГО сервера
+      await updateDoc(serverRef, {
+        members: arrayUnion(userId),
+      });
+
+      // 3. СОЗДАЕМ КОПИЮ СЕРВЕРА ДЛЯ ВАШЕГО СПИСКА
+      await addDoc(collection(db, "servers"), {
+        ...serverData,
+        userId: userId, // <-- Теперь владелец - вы
+        originalServerId: notification.serverId, // Ссылка на оригинал
+        joinedAt: new Date(),
+      });
+
+      // 4. Удаляем уведомление
+      await deleteDoc(doc(db, "notifications", notification.id));
+
+      Alert.alert(
+        t({
+          ru: "Успех",
+          en: "Success",
+          es: "Éxito",
+          fr: "Succès",
+          de: "Erfolg",
+        }),
+        t({
+          ru: `Вы присоединились к серверу "${notification.serverName}"`,
+          en: `You joined the server "${notification.serverName}"`,
+          es: `Te uniste al servidor "${notification.serverName}"`,
+          fr: `Vous avez rejoint le serveur "${notification.serverName}"`,
+          de: `Du bist dem Server "${notification.serverName}" beigetreten`,
+        })
+      );
+      router.push("/workshop");
+    } catch (error) {
+      console.log(error);
+      Alert.alert(
+        t({
+          ru: "Ошибка",
+          en: "Error",
+          es: "Error",
+          fr: "Erreur",
+          de: "Fehler",
+        }),
+        t({
+          ru: "Не удалось принять приглашение",
+          en: "Could not accept invitation",
+          es: "No se pudo aceptar la invitación",
+          fr: "Impossible d'accepter l'invitation",
+          de: "Einladung konnte nicht angenommen werden",
+        })
+      );
+    }
+  };
+
+  // 5. УДАЛЕНИЕ УВЕДОМЛЕНИЯ
+  const deleteNotification = async (id) => {
+    try {
+      await deleteDoc(doc(db, "notifications", id));
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   const handleBack = () => {
     if (router.canGoBack()) router.back();
@@ -44,14 +209,28 @@ export default function NotificationsScreen() {
               style={styles.menuItem}
               onPress={() => setShowMenu(false)}
             >
-              <Text style={styles.menuItemText}>Отметить все прочитанными</Text>
+              <Text style={styles.menuItemText}>
+                {t({
+                  ru: "Отметить все прочитанными",
+                  en: "Mark all as read",
+                  es: "Marcar todo como leído",
+                  fr: "Tout marquer comme lu",
+                  de: "Alle als gelesen markieren",
+                })}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => setShowMenu(false)}
             >
               <Text style={[styles.menuItemText, { color: "#FF453A" }]}>
-                Очистить уведомления
+                {t({
+                  ru: "Очистить уведомления",
+                  en: "Clear notifications",
+                  es: "Borrar notificaciones",
+                  fr: "Effacer les notifications",
+                  de: "Benachrichtigungen löschen",
+                })}
               </Text>
             </TouchableOpacity>
           </View>
@@ -70,19 +249,19 @@ export default function NotificationsScreen() {
               strokeLinejoin="round"
             />
           </Svg>
-          <Text style={styles.backText}>Назад</Text>
+          <Text style={styles.backText}>
+            {t({
+              ru: "Назад",
+              en: "Back",
+              es: "Atrás",
+              fr: "Retour",
+              de: "Zurück",
+            })}
+          </Text>
         </TouchableOpacity>
-        <View style={styles.orbitIndicator}>
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-              stroke={COLORS.purple}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-          <Text style={styles.orbitText}>ORBIT</Text>
+
+        <View style={styles.logoContainer}>
+          <AnimatedLogo size={28} />
         </View>
       </View>
 
@@ -92,7 +271,15 @@ export default function NotificationsScreen() {
       >
         {/* Title */}
         <View style={styles.titleRow}>
-          <Text style={styles.pageTitle}>Уведомления</Text>
+          <Text style={styles.pageTitle}>
+            {t({
+              ru: "Уведомления",
+              en: "Notifications",
+              es: "Notificaciones",
+              fr: "Notifications",
+              de: "Benachrichtigungen",
+            })}
+          </Text>
           <TouchableOpacity onPress={() => setShowMenu(!showMenu)}>
             <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
               <Circle cx={12} cy={12} r={1} fill={COLORS.textSub} />
@@ -102,43 +289,45 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Запрос дружбы */}
-        {requestAction === "none" && (
-          <View style={styles.requestCard}>
+        {/* БЛОК РЕАЛЬНЫХ ЗАПРОСОВ ДРУЖБЫ */}
+        {requests.map((req) => (
+          <View key={req.id} style={styles.requestCard}>
             <View style={styles.requestHeader}>
               <View style={styles.requestUser}>
                 <View style={styles.avatar}>
-                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                    <Circle
-                      cx={12}
-                      cy={12}
-                      r={10}
-                      stroke={COLORS.purple}
-                      strokeWidth={2}
-                    />
-                    <Path
-                      d="M8 12h8"
-                      stroke={COLORS.purple}
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                    />
-                    <Path
-                      d="M12 8v8"
-                      stroke={COLORS.purple}
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                    />
-                  </Svg>
+                  <Text
+                    style={{
+                      color: COLORS.purple,
+                      fontSize: 16,
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {(req.fromName || "U").charAt(0)}
+                  </Text>
                 </View>
                 <View>
-                  <Text style={styles.requestName}>LL★REZ★</Text>
+                  <Text style={styles.requestName}>
+                    {req.fromName ||
+                      t({
+                        ru: "Пользователь",
+                        en: "User",
+                        es: "Usuario",
+                        fr: "Utilisateur",
+                        de: "Benutzer",
+                      })}
+                  </Text>
                   <Text style={styles.requestSub}>
-                    Отправляет вам запрос дружбы
+                    {t({
+                      ru: "Отправляет вам запрос дружбы",
+                      en: "Sent you a friend request",
+                      es: "Te envió una solicitud de amistad",
+                      fr: "Vous a envoyé une demande d'ami",
+                      de: "Hat dir eine Freundschaftsanfrage gesendet",
+                    })}
                   </Text>
                 </View>
               </View>
               <View style={styles.requestTime}>
-                <Text style={styles.timeText}>6 мес.</Text>
                 <View
                   style={[styles.dot, { backgroundColor: COLORS.indigo }]}
                 />
@@ -147,169 +336,140 @@ export default function NotificationsScreen() {
             <View style={styles.requestButtons}>
               <TouchableOpacity
                 style={[styles.btnAccept, { backgroundColor: COLORS.indigo }]}
-                onPress={() => setRequestAction("accepted")}
+                onPress={() => handleRequest(req.id, "accepted")}
               >
-                <Text style={styles.btnAcceptText}>Принять</Text>
+                <Text style={styles.btnAcceptText}>
+                  {t({
+                    ru: "Принять",
+                    en: "Accept",
+                    es: "Aceptar",
+                    fr: "Accepter",
+                    de: "Annehmen",
+                  })}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.btnIgnore}
-                onPress={() => setRequestAction("ignored")}
+                onPress={() => handleRequest(req.id, "declined")}
               >
-                <Text style={styles.btnIgnoreText}>Игнорировать</Text>
+                <Text style={styles.btnIgnoreText}>
+                  {t({
+                    ru: "Игнорировать",
+                    en: "Ignore",
+                    es: "Ignorar",
+                    fr: "Ignorer",
+                    de: "Ignorieren",
+                  })}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
+        ))}
+
+        <Text style={styles.sectionTitle}>
+          {t({
+            ru: "Недавняя активность",
+            en: "Recent activity",
+            es: "Actividad reciente",
+            fr: "Activité récente",
+            de: "Letzte Aktivität",
+          })}
+        </Text>
+
+        {loading ? (
+          <ActivityIndicator
+            size="large"
+            color={COLORS.purple}
+            style={{ marginTop: 20 }}
+          />
+        ) : notifications.length === 0 ? (
+          <Text
+            style={{
+              color: COLORS.textSub,
+              textAlign: "center",
+              marginTop: 20,
+            }}
+          >
+            {t({
+              ru: "У вас пока нет уведомлений",
+              en: "You have no notifications yet",
+              es: "Aún no tienes notificaciones",
+              fr: "Vous n'avez pas encore de notifications",
+              de: "Sie haben noch keine Benachrichtigungen",
+            })}
+          </Text>
+        ) : (
+          notifications.map((notif) => (
+            <View key={notif.id} style={styles.activityItem}>
+              <View style={styles.activityIcon}>
+                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"
+                    stroke={COLORS.purple}
+                    strokeWidth={2}
+                  />
+                  <Path
+                    d="M12 16v-4M12 8h.01"
+                    stroke={COLORS.purple}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              </View>
+              <View style={styles.activityContent}>
+                <View style={styles.activityHeader}>
+                  <Text style={styles.activityText}>
+                    {notif.title ||
+                      t({
+                        ru: "Новое уведомление",
+                        en: "New notification",
+                        es: "Nueva notificación",
+                        fr: "Nouvelle notification",
+                        de: "Neue Benachrichtigung",
+                      })}
+                  </Text>
+                </View>
+                <View style={styles.quoteBlock}>
+                  <Text style={styles.quoteText}>{notif.message}</Text>
+                </View>
+
+                {/* КНОПКИ ДЛЯ ПРИГЛАШЕНИЯ НА СЕРВЕР */}
+                {notif.type === "server_invite" && (
+                  <View style={styles.inviteButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.acceptBtn}
+                      onPress={() => handleAcceptInvite(notif)}
+                    >
+                      <Text style={styles.acceptBtnText}>
+                        {t({
+                          ru: "Принять",
+                          en: "Accept",
+                          es: "Aceptar",
+                          fr: "Accepter",
+                          de: "Annehmen",
+                        })}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.declineBtn}
+                      onPress={() => deleteNotification(notif.id)}
+                    >
+                      <Text style={styles.declineBtnText}>
+                        {t({
+                          ru: "Отклонить",
+                          en: "Decline",
+                          es: "Rechazar",
+                          fr: "Refuser",
+                          de: "Ablehnen",
+                        })}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </View>
+          ))
         )}
-
-        {requestAction !== "none" && (
-          <View style={styles.requestResult}>
-            <Text style={styles.requestResultText}>
-              Запрос{" "}
-              {requestAction === "accepted" ? "принят" : "проигнорирован"}
-            </Text>
-          </View>
-        )}
-
-        <Text style={styles.sectionTitle}>Недавняя активность</Text>
-
-        {/* Активность 1 */}
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
-                stroke={COLORS.purple}
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </View>
-          <View style={styles.activityContent}>
-            <View style={styles.activityHeader}>
-              <Text style={styles.activityText}>
-                У вас есть новые сообщения в:{" "}
-                <Text style={styles.activityBold}>Neverу.</Text>
-              </Text>
-              <Text style={styles.timeText}>14 ч.</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* Активность 2 */}
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Circle
-                cx={12}
-                cy={12}
-                r={10}
-                stroke={COLORS.purple}
-                strokeWidth={2}
-              />
-              <Path
-                d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"
-                stroke={COLORS.purple}
-                strokeWidth={2}
-                strokeLinecap="round"
-              />
-            </Svg>
-          </View>
-          <View style={styles.activityContent}>
-            <View style={styles.activityHeader}>
-              <Text style={styles.activityText}>
-                ! Inception упоминает вас в Neverу —{" "}
-                <Text style={styles.activityBold}>Трибунка</Text>
-              </Text>
-              <Text style={styles.timeText}>11 ч.</Text>
-            </View>
-            <View style={styles.quoteBlock}>
-              <Text style={styles.mentionText}>@everyone</Text>
-              <Text style={styles.quoteText}>
-                ТРИБУНА БЫСТРЫЕ СВИДАНИЯ НАЧАЛИСЬ
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* Активность 3 */}
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-                stroke={COLORS.purple}
-                strokeWidth={2}
-                strokeLinecap="round"
-              />
-              <Circle
-                cx={9}
-                cy={7}
-                r={4}
-                stroke={COLORS.purple}
-                strokeWidth={2}
-              />
-              <Path
-                d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
-                stroke={COLORS.purple}
-                strokeWidth={2}
-                strokeLinecap="round"
-              />
-            </Svg>
-          </View>
-          <View style={styles.activityContent}>
-            <View style={styles.activityHeader}>
-              <Text style={styles.activityText}>
-                qwaraHStillalive? упоминает вас в Neverу —{" "}
-                <Text style={styles.activityBold}>новости</Text>
-              </Text>
-              <Text style={styles.timeText}>12 ч.</Text>
-            </View>
-            <View style={styles.quoteBlock}>
-              <Text style={styles.mentionText}>@everyone</Text>
-              <Text style={styles.quoteText}>
-                Дорогие участники сервера! Сегодня в 21:00 по МСК — «Трибуна:
-                Быстрые свидания». Разыграем Orbit Premium на 1 месяц!
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* Активность 4 */}
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"
-                stroke={COLORS.purple}
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </View>
-          <View style={styles.activityContent}>
-            <View style={styles.activityHeader}>
-              <Text style={styles.activityText}>
-                ! Inception упоминает вас в Neverу —{" "}
-                <Text style={styles.activityBold}>розыгрыш</Text>
-              </Text>
-              <Text style={styles.timeText}>13 ч.</Text>
-            </View>
-            <View style={styles.quoteBlock}>
-              <Text style={styles.mentionText}>@everyone</Text>
-              <Text style={styles.quoteText}>
-                Orbit Premium на 1 месяц. Условия: посидеть в войсе 40 минут.
-              </Text>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -331,14 +491,10 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: "500",
   },
-  orbitIndicator: { flexDirection: "row", alignItems: "center", gap: 4 },
-  orbitText: {
-    color: "#FFF",
-    fontSize: 14,
-    fontWeight: "bold",
-    letterSpacing: 1,
+  logoContainer: {
+    justifyContent: "center",
+    alignItems: "center",
   },
-
   scrollContainer: { paddingHorizontal: 16, paddingBottom: 40 },
   titleRow: {
     flexDirection: "row",
@@ -347,7 +503,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   pageTitle: { color: "#FFF", fontSize: 30, fontWeight: "bold" },
-
   requestCard: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
@@ -374,7 +529,6 @@ const styles = StyleSheet.create({
   requestTime: { alignItems: "flex-end", gap: 4 },
   timeText: { color: COLORS.textSub, fontSize: 10 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-
   requestButtons: { flexDirection: "row", gap: 8 },
   btnAccept: {
     flex: 1,
@@ -390,23 +544,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnIgnoreText: { color: "#FFF", fontSize: 14, fontWeight: "500" },
-
-  requestResult: {
-    backgroundColor: "rgba(44,44,46,0.5)",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    alignItems: "center",
-  },
-  requestResultText: { color: COLORS.textSub, fontSize: 14 },
-
   sectionTitle: {
     color: COLORS.textSub,
     fontSize: 14,
     fontWeight: "500",
     marginBottom: 16,
   },
-  activityItem: { flexDirection: "row", gap: 12 },
+  activityItem: { flexDirection: "row", gap: 12, marginBottom: 16 },
   activityIcon: {
     width: 40,
     height: 40,
@@ -423,27 +567,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   activityText: { color: "#D1D1D6", fontSize: 14, flex: 1, lineHeight: 20 },
-  activityBold: { color: "#FFF", fontWeight: "bold" },
   quoteBlock: {
     borderLeftWidth: 2,
     borderLeftColor: COLORS.border,
     paddingLeft: 12,
     marginTop: 8,
   },
-  mentionText: {
-    fontSize: 12,
-    color: COLORS.purple,
-    fontWeight: "500",
-    marginBottom: 4,
-  },
   quoteText: { color: COLORS.textSub, fontSize: 12, lineHeight: 18 },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginLeft: 52,
-    marginVertical: 16,
-  },
-
   menuBackdrop: {
     position: "absolute",
     top: 0,
@@ -466,4 +596,35 @@ const styles = StyleSheet.create({
   },
   menuItem: { paddingVertical: 12, paddingHorizontal: 16 },
   menuItemText: { color: "#FFF", fontSize: 14 },
+
+  // Новые стили для кнопок приглашения на сервер
+  inviteButtonsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+  acceptBtn: {
+    flex: 1,
+    backgroundColor: COLORS.indigo,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  acceptBtnText: {
+    color: "#FFF",
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  declineBtn: {
+    flex: 1,
+    backgroundColor: "#3A3A3C",
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  declineBtnText: {
+    color: "#FFF",
+    fontWeight: "600",
+    fontSize: 13,
+  },
 });

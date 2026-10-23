@@ -1,28 +1,36 @@
-import React, { useState } from "react";
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
+  Alert,
+  Image,
+  Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  Modal,
   TextInput,
-  Platform,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialCommunityIcons, Ionicons, Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { AnimatedLogo } from "../components/AnimatedLogo";
 import { useApp } from "../context/AppContext";
-import { COLORS } from "../theme/colors";
 import i18n from "../i18n";
+import { COLORS } from "../theme/colors";
 
 export const ServerSettingsScreen = () => {
   const router = useRouter();
-  const { activeServer, deleteServer, renameServer } = useApp();
+  const { activeServer, deleteServer, renameServer, createRole, deleteRole } =
+    useApp();
+
   const [isRenameModalVisible, setRenameModalVisible] = useState(false);
   const [newName, setNewName] = useState("");
   const [expandedSection, setExpandedSection] = useState(null);
+
+  // Состояния для создания роли
+  const [isRoleModalVisible, setRoleModalVisible] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
 
   const handleBack = () => {
     if (router.canGoBack()) router.back();
@@ -64,8 +72,42 @@ export const ServerSettingsScreen = () => {
     }
   };
 
+  const handleCreateRole = async () => {
+    if (!newRoleName.trim()) {
+      Alert.alert("Ошибка", "Введите название роли");
+      return;
+    }
+    await createRole(activeServer.id, {
+      name: newRoleName.trim(),
+      color: "#8A56FF",
+    });
+    setNewRoleName("");
+    setRoleModalVisible(false);
+  };
+
+  const handleDeleteRole = (roleId) => {
+    Alert.alert("Удалить роль?", "Вы уверены, что хотите удалить эту роль?", [
+      { text: "Отмена", style: "cancel" },
+      {
+        text: "Удалить",
+        style: "destructive",
+        onPress: () => deleteRole(activeServer.id, roleId),
+      },
+    ]);
+  };
+
   const toggleSection = (section) => {
     setExpandedSection((prev) => (prev === section ? null : section));
+  };
+
+  const handleMenuPress = (section) => {
+    if (section === "members") {
+      router.push("/members");
+    } else if (section === "invites") {
+      router.push("/invite");
+    } else {
+      toggleSection(section);
+    }
   };
 
   const SettingItem = ({ title, section }) => {
@@ -74,7 +116,7 @@ export const ServerSettingsScreen = () => {
       <View>
         <TouchableOpacity
           style={styles.settingItem}
-          onPress={() => toggleSection(section)}
+          onPress={() => handleMenuPress(section)}
         >
           <Text style={styles.settingText}>{title}</Text>
           <Ionicons
@@ -85,14 +127,51 @@ export const ServerSettingsScreen = () => {
         </TouchableOpacity>
         {isExpanded && (
           <View style={styles.expandedContent}>
-            <Text style={styles.placeholderText}>
-              {i18n.t("empty_section")}
-            </Text>
+            {section === "roles" ? (
+              <>
+                {(activeServer.roles || []).length > 0 ? (
+                  activeServer.roles.map((role) => (
+                    <View key={role.id} style={styles.roleRow}>
+                      <View style={styles.roleInfo}>
+                        <View
+                          style={[
+                            styles.roleColorDot,
+                            { backgroundColor: role.color || COLORS.primary },
+                          ]}
+                        />
+                        <Text style={styles.roleName}>{role.name}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteRole(role.id)}
+                      >
+                        <Feather name="trash-2" size={16} color="#FF453A" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.placeholderText}>Ролей пока нет</Text>
+                )}
+                <TouchableOpacity
+                  style={styles.addRoleBtn}
+                  onPress={() => setRoleModalVisible(true)}
+                >
+                  <Feather name="plus" size={16} color={COLORS.primary} />
+                  <Text style={styles.addRoleText}>Создать роль</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text style={styles.placeholderText}>
+                {i18n.t("empty_section") || "Здесь пока пусто"}
+              </Text>
+            )}
           </View>
         )}
       </View>
     );
   };
+
+  const membersCount = activeServer.members?.length || 1;
+  const channelsCount = activeServer.channels?.length || 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
@@ -101,13 +180,9 @@ export const ServerSettingsScreen = () => {
           <Ionicons name="chevron-back" size={24} color="#FFF" />
           <Text style={styles.backText}>{i18n.t("back")}</Text>
         </TouchableOpacity>
-        <View style={styles.orbitIndicator}>
-          <MaterialCommunityIcons
-            name="orbit"
-            size={16}
-            color={COLORS.primary}
-          />
-          <Text style={styles.orbitText}>ORBIT</Text>
+
+        <View style={styles.logoContainer}>
+          <AnimatedLogo size={28} />
         </View>
       </View>
 
@@ -121,11 +196,18 @@ export const ServerSettingsScreen = () => {
 
         <View style={styles.serverCard}>
           <View style={styles.serverIconBg}>
-            <MaterialCommunityIcons
-              name="hexagon-multiple"
-              size={24}
-              color={COLORS.primary}
-            />
+            {activeServer.icon && activeServer.icon.startsWith("data:image") ? (
+              <Image
+                source={{ uri: activeServer.icon }}
+                style={styles.serverIconImage}
+              />
+            ) : (
+              <MaterialCommunityIcons
+                name="hexagon-multiple"
+                size={24}
+                color={COLORS.primary}
+              />
+            )}
           </View>
           <View style={styles.serverInfo}>
             <Text style={styles.serverName}>{activeServer.name}</Text>
@@ -140,11 +222,11 @@ export const ServerSettingsScreen = () => {
 
         <View style={styles.statsRow}>
           <Text style={styles.statText}>
-            8 {i18n.t("members") || "участников"}
+            {membersCount} {i18n.t("members") || "участников"}
           </Text>
           <View style={styles.dot} />
           <Text style={styles.statText}>
-            7 {i18n.t("channels") || "каналов"}
+            {channelsCount} {i18n.t("channels") || "каналов"}
           </Text>
           <View style={styles.dot} />
           <Text style={styles.statText}>
@@ -191,6 +273,7 @@ export const ServerSettingsScreen = () => {
         </Text>
       </ScrollView>
 
+      {/* Модалка переименования */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -230,6 +313,41 @@ export const ServerSettingsScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Модалка создания роли */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isRoleModalVisible}
+        onRequestClose={() => setRoleModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Создать роль</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newRoleName}
+              onChangeText={setNewRoleName}
+              placeholder="Название роли (например, «Администратор»)"
+              placeholderTextColor="#666"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setRoleModalVisible(false)}
+              >
+                <Text style={styles.modalBtnCancelText}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalBtnSave}
+                onPress={handleCreateRole}
+              >
+                <Text style={styles.modalBtnSaveText}>Создать</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -246,13 +364,12 @@ const styles = StyleSheet.create({
   },
   backButton: { flexDirection: "row", alignItems: "center" },
   backText: { color: "#FFF", fontSize: 14, marginLeft: 4 },
-  orbitIndicator: { flexDirection: "row", alignItems: "center", gap: 4 },
-  orbitText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 1,
+
+  logoContainer: {
+    justifyContent: "center",
+    alignItems: "center",
   },
+
   scrollContainer: { paddingHorizontal: 24, paddingBottom: 40 },
   title: {
     fontSize: 28,
@@ -277,7 +394,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
+    overflow: "hidden",
   },
+  serverIconImage: { width: 48, height: 48, resizeMode: "cover" },
   serverInfo: { flex: 1 },
   serverName: {
     color: "#FFF",
@@ -329,6 +448,39 @@ const styles = StyleSheet.create({
     borderBottomColor: "#3A3A3C",
   },
   placeholderText: { color: "#666", fontSize: 14, fontStyle: "italic" },
+
+  roleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  roleInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  roleColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  roleName: {
+    color: "#FFF",
+    fontSize: 15,
+  },
+  addRoleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  addRoleText: {
+    color: COLORS.primary,
+    marginLeft: 6,
+    fontSize: 15,
+  },
+
   deleteButton: {
     backgroundColor: "rgba(255, 69, 58, 0.1)",
     paddingVertical: 16,
@@ -343,6 +495,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
+
+  // ИСПРАВЛЕНО: модальное окно стало меньше
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -352,9 +506,11 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "100%",
+    maxWidth: 340, // <-- Ограничили максимальную ширину
     backgroundColor: "#2C2C2E",
     borderRadius: 16,
-    padding: 24,
+    padding: 20, // <-- Чуть уменьшили внутренний отступ
+    alignSelf: "center", // <-- Центрируем по горизонтали
   },
   modalTitle: {
     color: "#FFF",
@@ -367,29 +523,31 @@ const styles = StyleSheet.create({
     color: "#FFF",
     borderRadius: 12,
     paddingHorizontal: 16,
-    height: 52,
-    marginBottom: 24,
+    height: 48, // <-- Чуть уменьшили высоту
+    marginBottom: 20,
     ...(Platform.OS === "web" && { outlineStyle: "none" }),
   },
-  modalButtons: { flexDirection: "row", justifyContent: "space-between" },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   modalBtnCancel: {
     flex: 1,
-    height: 48,
+    height: 44, // <-- Чуть уменьшили высоту кнопок
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 12,
     backgroundColor: "#1A1A1E",
-    marginRight: 8,
   },
-  modalBtnCancelText: { color: "#FFF", fontSize: 16 },
+  modalBtnCancelText: { color: "#FFF", fontSize: 15 },
   modalBtnSave: {
     flex: 1,
-    height: 48,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 12,
     backgroundColor: COLORS.primary,
-    marginLeft: 8,
   },
-  modalBtnSaveText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+  modalBtnSaveText: { color: "#FFF", fontSize: 15, fontWeight: "600" },
 });

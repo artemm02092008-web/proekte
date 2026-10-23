@@ -1,11 +1,10 @@
-import React from "react";
-import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { COLORS } from "../theme/colors";
 import { CustomButton } from "../components/CustomButton";
 import i18n from "../i18n";
+import { COLORS } from "../theme/colors";
 
 export const SuccessScreen = () => {
   const router = useRouter();

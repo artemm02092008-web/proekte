@@ -6,7 +6,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
   onSnapshot,
   query,
   setDoc,
@@ -82,39 +81,52 @@ export const AppProvider = ({ children }) => {
     return unsubscribe;
   }, []);
 
+  // Сервера загружаются в реальном времени
   useEffect(() => {
-    const loadServers = async () => {
-      const user = auth.currentUser;
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (!user) {
+        setServers([]);
         setLoading(false);
         return;
       }
-      try {
-        const q = query(
-          collection(db, "servers"),
-          where("userId", "==", user.uid)
-        );
-        const querySnapshot = await getDocs(q);
-        const loadedServers = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setServers(loadedServers);
-        if (loadedServers.length > 0) setActiveServerId(loadedServers[0].id);
-      } catch (error) {
-        console.log(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) loadServers();
-      else {
-        setServers([]);
-        setLoading(false);
-      }
+
+      const q = query(
+        collection(db, "servers"),
+        where("userId", "==", user.uid)
+      );
+
+      const unsubscribeServers = onSnapshot(
+        q,
+        (querySnapshot) => {
+          const loadedServers = querySnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+
+          setServers(loadedServers);
+
+          if (loadedServers.length > 0) {
+            setActiveServerId((prevId) =>
+              loadedServers.find((s) => s.id === prevId)
+                ? prevId
+                : loadedServers[0].id
+            );
+          } else {
+            setActiveServerId(null);
+          }
+
+          setLoading(false);
+        },
+        (error) => {
+          console.log("Ошибка загрузки серверов:", error);
+          setLoading(false);
+        }
+      );
+
+      return () => unsubscribeServers();
     });
-    return unsubscribe;
+
+    return () => unsubscribeAuth();
   }, []);
 
   const changeLanguage = async (lang) => {
@@ -154,7 +166,6 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // ИСПРАВЛЕНО: Картинка сохраняется только в Firestore, в Auth пишем заглушку
   const updateAvatar = async (photoUri) => {
     const user = auth.currentUser;
     if (!user) return;
@@ -179,10 +190,7 @@ export const AppProvider = ({ children }) => {
         base64Image = `data:image/jpeg;base64,${base64}`;
       }
 
-      // В Auth сохраняем короткую строку-заглушку, чтобы избежать ошибки "URL too long"
       await updateProfile(user, { photoURL: "updated" });
-
-      // В Firestore сохраняем саму Base64-картинку
       await updateDoc(doc(db, "users", user.uid), { photoURL: base64Image });
       setUserData((prev) => ({ ...prev, photoURL: base64Image }));
     } catch (error) {
@@ -290,6 +298,69 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // ================= РОЛИ =================
+  const createRole = async (serverId, roleData) => {
+    if (!serverId) return null;
+    try {
+      const newRole = {
+        id: Date.now().toString(),
+        name: roleData.name,
+        color: roleData.color || "#8A56FF",
+        permissions: roleData.permissions || [],
+      };
+      await updateDoc(doc(db, "servers", serverId), {
+        roles: arrayUnion(newRole),
+      });
+      setServers((prev) =>
+        prev.map((s) =>
+          s.id === serverId ? { ...s, roles: [...(s.roles || []), newRole] } : s
+        )
+      );
+      return newRole;
+    } catch (e) {
+      console.log(e);
+      return null;
+    }
+  };
+
+  const deleteRole = async (serverId, roleId) => {
+    if (!serverId) return;
+    try {
+      const server = servers.find((s) => s.id === serverId);
+      if (!server) return;
+      const updatedRoles = (server.roles || []).filter((r) => r.id !== roleId);
+      await updateDoc(doc(db, "servers", serverId), { roles: updatedRoles });
+      setServers((prev) =>
+        prev.map((s) => (s.id === serverId ? { ...s, roles: updatedRoles } : s))
+      );
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const assignRole = async (serverId, userId, roleId) => {
+    if (!serverId) return;
+    try {
+      const server = servers.find((s) => s.id === serverId);
+      if (!server) return;
+      const updatedMemberRoles = {
+        ...(server.memberRoles || {}),
+        [userId]: roleId,
+      };
+      await updateDoc(doc(db, "servers", serverId), {
+        memberRoles: updatedMemberRoles,
+      });
+      setServers((prev) =>
+        prev.map((s) =>
+          s.id === serverId ? { ...s, memberRoles: updatedMemberRoles } : s
+        )
+      );
+    } catch (e) {
+      console.log(e);
+    }
+  };
+  // =========================================
+
   const activeServer =
     servers.find((s) => s.id === activeServerId) || servers[0] || null;
 
@@ -302,6 +373,9 @@ export const AppProvider = ({ children }) => {
       deleteServer,
       renameServer,
       createChannel,
+      createRole, // <-- ДОБАВЛЕНО
+      deleteRole, // <-- ДОБАВЛЕНО
+      assignRole, // <-- ДОБАВЛЕНО
       setActiveServerId,
       loading,
       language,

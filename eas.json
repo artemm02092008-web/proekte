@@ -9,7 +9,11 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_NO_METRO_WATCHER": "1",
+        "EXPO_USE_METRO_WORKSPACE_ROOT": "1"
+      }
     },
     "production": {
       "autoIncrement": true

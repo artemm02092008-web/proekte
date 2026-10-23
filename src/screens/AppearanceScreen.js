@@ -1,16 +1,17 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Switch,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Path, Circle } from "react-native-svg";
 import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
+import { AnimatedLogo } from "../components/AnimatedLogo"; // <-- ДОБАВИЛИ ИМПОРТ
 import { useApp } from "../context/AppContext";
 
 const COLORS = {
@@ -71,16 +72,8 @@ export const AppearanceScreen = () => {
           <Text style={styles.backText}>Назад</Text>
         </TouchableOpacity>
         <View style={styles.orbitIndicator}>
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Circle
-              cx={12}
-              cy={12}
-              r={9}
-              stroke={activeThemeColor}
-              strokeWidth={2}
-            />
-            <Circle cx={19} cy={5} r={2} fill={activeThemeColor} />
-          </Svg>
+          {/* ЗАМЕНИЛИ SVG-ИКОНКУ НА ANIMATED LOGO */}
+          <AnimatedLogo size={20} />
           <Text style={styles.orbitText}>ORBIT</Text>
         </View>
       </View>

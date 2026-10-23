@@ -1,9 +1,4 @@
-import {
-  Feather,
-  FontAwesome5,
-  Ionicons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { Feather, FontAwesome5, Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
@@ -21,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AnimatedLogo } from "../components/AnimatedLogo"; // <-- ДОБАВИЛИ ИМПОРТ
 import { useApp } from "../context/AppContext";
 import { auth, db } from "../firebase/config";
 import i18n from "../i18n";
@@ -159,8 +155,9 @@ export const ProfileScreen = () => {
           <Text style={styles.backText}>{i18n.t("back")}</Text>
         </TouchableOpacity>
         <View style={styles.orbitIndicator}>
-          <MaterialCommunityIcons name="orbit" size={16} color={primary} />
-          <Text style={styles.orbitText}>ORDET</Text>
+          {/* ЗАМЕНИЛИ ИКОНКУ НА ANIMATED LOGO КАК В WORKSHOP */}
+          <AnimatedLogo size={20} />
+          <Text style={styles.orbitText}>ORBIT</Text>
         </View>
       </View>
 
@@ -280,7 +277,7 @@ export const ProfileScreen = () => {
         {/* Main Tab Content */}
         {activeTab === "main" && (
           <>
-            {/* Balance (Убрали фейковый 800) */}
+            {/* Balance */}
             <View style={styles.balanceCard}>
               <View style={styles.balanceLeft}>
                 <FontAwesome5 name="gem" size={20} color="#8A56FF" />

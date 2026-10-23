@@ -1,20 +1,20 @@
-import React from "react";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import {
+  ScrollView,
   StyleSheet,
   Text,
-  View,
   TextInput,
   TouchableOpacity,
-  ScrollView,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useApp } from "../context/AppContext";
-import { COLORS } from "../theme/colors";
+import { AnimatedLogo } from "../components/AnimatedLogo"; // <-- ДОБАВИЛИ ИМПОРТ
+import { useApp } from "../context/AppContext"; // ИСПОЛЬЗУЕМ APPCONTEXT
 import i18n from "../i18n";
+import { COLORS } from "../theme/colors";
 
-// Компонент флага
+// --- ПРАВИЛЬНАЯ ОТРИСОВКА ФЛАГОВ ---
 const FlagIcon = ({ country }) => {
   return (
     <View style={styles.flagContainer}>
@@ -27,6 +27,10 @@ const FlagIcon = ({ country }) => {
       )}
       {country === "us" && (
         <View style={{ flex: 1, flexDirection: "column" }}>
+          <View style={{ flex: 1, backgroundColor: "#B22234" }} />
+          <View style={{ flex: 1, backgroundColor: "#FFF" }} />
+          <View style={{ flex: 1, backgroundColor: "#B22234" }} />
+          <View style={{ flex: 1, backgroundColor: "#FFF" }} />
           <View style={{ flex: 1, backgroundColor: "#B22234" }} />
           <View style={{ flex: 1, backgroundColor: "#FFF" }} />
           <View style={{ flex: 1, backgroundColor: "#B22234" }} />
@@ -120,6 +124,7 @@ const LANGUAGES = [
 
 export const LanguageScreen = () => {
   const router = useRouter();
+  // БЕРЕМ ЯЗЫК ИЗ APPCONTEXT
   const { language, changeLanguage } = useApp();
 
   const handleBack = () => {
@@ -135,11 +140,8 @@ export const LanguageScreen = () => {
           <Text style={styles.backText}>{i18n.t("back")}</Text>
         </TouchableOpacity>
         <View style={styles.orbitIndicator}>
-          <MaterialCommunityIcons
-            name="orbit"
-            size={16}
-            color={COLORS.primary}
-          />
+          {/* ЗАМЕНИЛИ ИКОНКУ НА ANIMATED LOGO */}
+          <AnimatedLogo size={20} />
           <Text style={styles.orbitText}>ORBIT</Text>
         </View>
       </View>
@@ -161,24 +163,25 @@ export const LanguageScreen = () => {
 
         <Text style={styles.sectionTitle}>{i18n.t("app_language")}</Text>
 
-        {LANGUAGES.map((lang) => {
+        {LANGUAGES.map((item) => {
           const isActive =
-            language === lang.id ||
-            (language === "en" && (lang.id === "uk" || lang.id === "us"));
+            language === item.id ||
+            (language === "en" && (item.id === "uk" || item.id === "us"));
+
           return (
             <TouchableOpacity
-              key={lang.id}
+              key={item.id}
               style={[styles.langItem, isActive && styles.langItemActive]}
               onPress={() =>
                 changeLanguage(
-                  lang.id === "uk" || lang.id === "us" ? "en" : lang.id
+                  item.id === "uk" || item.id === "us" ? "en" : item.id
                 )
               }
             >
-              <FlagIcon country={lang.id} />
+              <FlagIcon country={item.id} />
               <View style={styles.langTextContainer}>
-                <Text style={styles.langName}>{lang.name}</Text>
-                <Text style={styles.langSub}>{lang.sub}</Text>
+                <Text style={styles.langName}>{item.name}</Text>
+                <Text style={styles.langSub}>{item.sub}</Text>
               </View>
               {isActive ? (
                 <Ionicons

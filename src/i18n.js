@@ -1,5 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 const translations = {
   ru: {
+    // Общие
     back: "Назад",
     error: "Ошибка",
     fill_fields: "Пожалуйста, заполните все поля",
@@ -12,6 +15,8 @@ const translations = {
     search: "Поиск",
     close: "Закрыть",
     create: "Создать",
+
+    // Логин
     login_title: "Вход в аккаунт",
     login_subtitle: "С возвращением! Введите свои данные.",
     login_data: "ДАННЫЕ ДЛЯ ВХОДА",
@@ -25,12 +30,16 @@ const translations = {
     disclaimer: "Ваши данные — только ваши.",
     login_error: "Ошибка входа",
     wrong_credentials: "Неверный email или пароль.",
+
+    // Регистрация
     register_title: "Создать аккаунт",
     register_subtitle: "Будьте ближе к своим. Присоединяйтесь к Orbit.",
     profile_section: "ВАШ ПРОФИЛЬ",
     name: "Имя",
     username: "Имя пользователя",
     create_account: "Создать аккаунт",
+
+    // Настройки
     settings: "Настройки",
     notifications: "Уведомления",
     language: "Язык",
@@ -59,6 +68,8 @@ const translations = {
     theme_purple: "Фиолетовый",
     theme_blue: "Синий",
     theme_green: "Зеленый",
+
+    // Профиль
     profile: "Профиль",
     information: "ИНФОРМАЦИЯ",
     in_network: "В сети",
@@ -72,6 +83,8 @@ const translations = {
     note_private: "Видна только вам",
     member_since: "В числе участников с",
     profile_joined: "В числе участников с",
+
+    // Мастерская / Сервера
     workshop: "Мастерская",
     invite: "Пригласить на сервер",
     information_section: "ИНФОРМАЦИЯ",
@@ -86,9 +99,16 @@ const translations = {
     members_search: "Найти по имени",
     members_not_found: "Участники не найдены",
     members_all: "Все участники",
+
+    // Чаты / Сообщения
+    messages: "Сообщения",
+    search_messages: "Поиск",
+    add_friends: "Добавить друзей",
     chat_start: "Это начало вашей переписки",
     chat_write_first: "Напишите первое сообщение.",
     chat_placeholder: "Написать в",
+
+    // Создание сервера
     create_server: "Создать сервер",
     create_server_subtitle: "Отдельное место для вашей команды.",
     upload_icon: "Загрузить значок",
@@ -104,6 +124,8 @@ const translations = {
     for_community: "Для сообщества",
     for_community_sub: "Открытое пространство",
     create_server_footer: "Каналы можно настроить после создания.",
+
+    // Настройки сервера
     server_settings: "Настройки сервера",
     server_desc: "Сервер для проектов",
     members: "участников",
@@ -116,6 +138,8 @@ const translations = {
     delete_server: "Удалить сервер",
     delete_warning: "Все данные будут удалены.",
     enter_new_name: "Введите новое название",
+
+    // Premium
     premium_subtitle: "Ваше общение — на новой орбите.",
     files_50mb: "Файлы 50МБ",
     emoji: "Эмодзи",
@@ -133,6 +157,8 @@ const translations = {
     glow: "Сияние",
     with_love: "С любовью",
     autorenewal: "Автопродление",
+
+    // Оплата и Успех
     payment_title: "Оплата",
     payment_subtitle: "Введите данные карты",
     card_number: "Номер карты",
@@ -144,11 +170,12 @@ const translations = {
     success_title: "Успешно!",
     success_subtitle: "Вы подписались на Premium.",
     go_home: "На главную",
+
+    // Рамки
     frames_title: "Выбор рамки",
     frames_premium_only: "Рамки доступны только Premium",
-    messages: "Сообщения",
-    search_messages: "Поиск",
-    add_friends: "Добавить друзей",
+
+    // Уведомления
     recent_activity: "Недавняя активность",
     friend_request: "Запрос дружбы",
     accept: "Принять",
@@ -163,7 +190,9 @@ const translations = {
     mark_all_read: "Отметить все",
     clear_notifications: "Очистить уведомления",
   },
+
   en: {
+    // Общие
     back: "Back",
     error: "Error",
     fill_fields: "Please fill in all fields",
@@ -176,6 +205,8 @@ const translations = {
     search: "Search",
     close: "Close",
     create: "Create",
+
+    // Логин
     login_title: "Log in",
     login_subtitle: "Welcome back! Enter your details.",
     login_data: "LOGIN DETAILS",
@@ -189,12 +220,16 @@ const translations = {
     disclaimer: "Your data is only yours.",
     login_error: "Login error",
     wrong_credentials: "Incorrect email or password.",
+
+    // Регистрация
     register_title: "Create account",
     register_subtitle: "Be closer to your people. Join Orbit.",
     profile_section: "YOUR PROFILE",
     name: "Name",
     username: "Username",
     create_account: "Create account",
+
+    // Настройки
     settings: "Settings",
     notifications: "Notifications",
     language: "Language",
@@ -223,6 +258,8 @@ const translations = {
     theme_purple: "Purple",
     theme_blue: "Blue",
     theme_green: "Green",
+
+    // Профиль
     profile: "Profile",
     information: "INFORMATION",
     in_network: "Online",
@@ -236,6 +273,8 @@ const translations = {
     note_private: "Visible only to you",
     member_since: "Member since",
     profile_joined: "Member since",
+
+    // Мастерская / Сервера
     workshop: "Workshop",
     invite: "Invite to server",
     information_section: "INFORMATION",
@@ -250,9 +289,16 @@ const translations = {
     members_search: "Search by name",
     members_not_found: "No members found",
     members_all: "All members",
+
+    // Чаты / Сообщения
+    messages: "Messages",
+    search_messages: "Search",
+    add_friends: "Add friends",
     chat_start: "This is the beginning of your conversation",
     chat_write_first: "Write the first message.",
     chat_placeholder: "Write to",
+
+    // Создание сервера
     create_server: "Create server",
     create_server_subtitle: "A separate place for your team.",
     upload_icon: "Upload icon",
@@ -269,6 +315,8 @@ const translations = {
     for_community_sub: "Open space by interests",
     create_server_footer:
       "Channels and roles can be configured after creation.",
+
+    // Настройки сервера
     server_settings: "Server settings",
     server_desc: "Server for projects",
     members: "members",
@@ -281,6 +329,8 @@ const translations = {
     delete_server: "Delete server",
     delete_warning: "All data will be deleted.",
     enter_new_name: "Enter new name",
+
+    // Premium
     premium_subtitle: "Your communication — on a new orbit.",
     files_50mb: "Files 50MB",
     emoji: "Emoji",
@@ -298,6 +348,8 @@ const translations = {
     glow: "Glow",
     with_love: "With love",
     autorenewal: "Auto-renewal",
+
+    // Оплата и Успех
     payment_title: "Payment",
     payment_subtitle: "Enter your card details",
     card_number: "Card number",
@@ -309,11 +361,12 @@ const translations = {
     success_title: "Success!",
     success_subtitle: "You have subscribed to Premium.",
     go_home: "Go to home",
+
+    // Рамки
     frames_title: "Choose frame",
     frames_premium_only: "Frames are available only for Premium",
-    messages: "Messages",
-    search_messages: "Search",
-    add_friends: "Add friends",
+
+    // Уведомления
     recent_activity: "Recent activity",
     friend_request: "Friend request",
     accept: "Accept",
@@ -328,7 +381,9 @@ const translations = {
     mark_all_read: "Mark all read",
     clear_notifications: "Clear notifications",
   },
+
   es: {
+    // Общие
     back: "Atrás",
     error: "Error",
     fill_fields: "Complete todos los campos",
@@ -341,6 +396,8 @@ const translations = {
     search: "Buscar",
     close: "Cerrar",
     create: "Crear",
+
+    // Логин
     login_title: "Iniciar sesión",
     login_subtitle: "¡Bienvenido de nuevo!",
     login_data: "DATOS DE INICIO",
@@ -354,12 +411,16 @@ const translations = {
     disclaimer: "Sus datos son suyos.",
     login_error: "Error",
     wrong_credentials: "Datos incorrectos.",
+
+    // Регистрация
     register_title: "Crear cuenta",
     register_subtitle: "Únase a Orbit.",
     profile_section: "SU PERFIL",
     name: "Nombre",
     username: "Usuario",
     create_account: "Crear cuenta",
+
+    // Настройки
     settings: "Ajustes",
     notifications: "Notificaciones",
     language: "Idioma",
@@ -388,6 +449,8 @@ const translations = {
     theme_purple: "Morado",
     theme_blue: "Azul",
     theme_green: "Verde",
+
+    // Профиль
     profile: "Perfil",
     information: "INFORMACIÓN",
     in_network: "En línea",
@@ -401,6 +464,8 @@ const translations = {
     note_private: "Solo tú",
     member_since: "Miembro desde",
     profile_joined: "Miembro desde",
+
+    // Мастерская / Сервера
     workshop: "Taller",
     invite: "Invitar",
     information_section: "INFORMACIÓN",
@@ -415,9 +480,16 @@ const translations = {
     members_search: "Buscar miembro",
     members_not_found: "No encontrado",
     members_all: "Todos",
+
+    // Чаты / Сообщения
+    messages: "Mensajes",
+    search_messages: "Buscar",
+    add_friends: "Añadir amigos",
     chat_start: "Inicio de conversación",
     chat_write_first: "Escribe el primer mensaje.",
     chat_placeholder: "Escribir a",
+
+    // Создание сервера
     create_server: "Crear servidor",
     create_server_subtitle: "Lugar para tu equipo.",
     upload_icon: "Subir icono",
@@ -433,6 +505,8 @@ const translations = {
     for_community: "Comunidad",
     for_community_sub: "Abierto",
     create_server_footer: "Configurable después.",
+
+    // Настройки сервера
     server_settings: "Ajustes del servidor",
     server_desc: "Servidor de proyectos",
     members: "miembros",
@@ -445,6 +519,8 @@ const translations = {
     delete_server: "Eliminar servidor",
     delete_warning: "Todo será borrado.",
     enter_new_name: "Nuevo nombre",
+
+    // Premium
     premium_subtitle: "Nueva órbita.",
     files_50mb: "50MB",
     emoji: "Emoji",
@@ -462,6 +538,8 @@ const translations = {
     glow: "Brillo",
     with_love: "Con amor",
     autorenewal: "Auto-renovación",
+
+    // Оплата и Успех
     payment_title: "Pago",
     payment_subtitle: "Datos de tarjeta",
     card_number: "Tarjeta",
@@ -473,11 +551,12 @@ const translations = {
     success_title: "¡Éxito!",
     success_subtitle: "Suscrito a Premium.",
     go_home: "Inicio",
+
+    // Рамки
     frames_title: "Marco",
     frames_premium_only: "Solo Premium",
-    messages: "Mensajes",
-    search_messages: "Buscar",
-    add_friends: "Añadir amigos",
+
+    // Уведомления
     recent_activity: "Actividad",
     friend_request: "Solicitud",
     accept: "Aceptar",
@@ -492,7 +571,9 @@ const translations = {
     mark_all_read: "Leer todo",
     clear_notifications: "Borrar",
   },
+
   fr: {
+    // Общие
     back: "Retour",
     error: "Erreur",
     fill_fields: "Remplissez tout",
@@ -505,6 +586,8 @@ const translations = {
     search: "Rechercher",
     close: "Fermer",
     create: "Créer",
+
+    // Логин
     login_title: "Connexion",
     login_subtitle: "Bon retour !",
     login_data: "DONNÉES",
@@ -518,12 +601,16 @@ const translations = {
     disclaimer: "Vos données.",
     login_error: "Erreur",
     wrong_credentials: "Incorrect.",
+
+    // Регистрация
     register_title: "Créer un compte",
     register_subtitle: "Rejoignez Orbit.",
     profile_section: "PROFIL",
     name: "Nom",
     username: "Pseudo",
     create_account: "Créer",
+
+    // Настройки
     settings: "Paramètres",
     notifications: "Notifications",
     language: "Langue",
@@ -552,6 +639,8 @@ const translations = {
     theme_purple: "Violet",
     theme_blue: "Bleu",
     theme_green: "Vert",
+
+    // Профиль
     profile: "Profil",
     information: "INFO",
     in_network: "En ligne",
@@ -565,6 +654,8 @@ const translations = {
     note_private: "Privé",
     member_since: "Membre depuis",
     profile_joined: "Membre depuis",
+
+    // Мастерская / Сервера
     workshop: "Atelier",
     invite: "Inviter",
     information_section: "INFO",
@@ -579,9 +670,16 @@ const translations = {
     members_search: "Chercher",
     members_not_found: "Aucun",
     members_all: "Tous",
+
+    // Чаты / Сообщения
+    messages: "Messages",
+    search_messages: "Chercher",
+    add_friends: "Ajouter",
     chat_start: "Début de la conversation",
     chat_write_first: "Écrivez un message.",
     chat_placeholder: "Écrire à",
+
+    // Создание сервера
     create_server: "Créer serveur",
     create_server_subtitle: "Pour votre équipe.",
     upload_icon: "Icône",
@@ -597,6 +695,8 @@ const translations = {
     for_community: "Communauté",
     for_community_sub: "Ouvert",
     create_server_footer: "Configurable après.",
+
+    // Настройки сервера
     server_settings: "Paramètres serveur",
     server_desc: "Serveur de projet",
     members: "membres",
@@ -609,6 +709,8 @@ const translations = {
     delete_server: "Supprimer",
     delete_warning: "Tout sera supprimé.",
     enter_new_name: "Nouveau nom",
+
+    // Premium
     premium_subtitle: "Nouvelle orbite.",
     files_50mb: "50MB",
     emoji: "Emoji",
@@ -626,6 +728,8 @@ const translations = {
     glow: "Lueur",
     with_love: "Avec amour",
     autorenewal: "Auto-renouvellement",
+
+    // Оплата и Успех
     payment_title: "Paiement",
     payment_subtitle: "Carte",
     card_number: "Numéro",
@@ -637,11 +741,12 @@ const translations = {
     success_title: "Succès !",
     success_subtitle: "Abonné à Premium.",
     go_home: "Accueil",
+
+    // Рамки
     frames_title: "Cadre",
     frames_premium_only: "Premium uniquement",
-    messages: "Messages",
-    search_messages: "Chercher",
-    add_friends: "Ajouter",
+
+    // Уведомления
     recent_activity: "Activité",
     friend_request: "Demande",
     accept: "Accepter",
@@ -656,7 +761,9 @@ const translations = {
     mark_all_read: "Tout lire",
     clear_notifications: "Effacer",
   },
+
   de: {
+    // Общие
     back: "Zurück",
     error: "Fehler",
     fill_fields: "Alle Felder ausfüllen",
@@ -669,6 +776,8 @@ const translations = {
     search: "Suchen",
     close: "Schließen",
     create: "Erstellen",
+
+    // Логин
     login_title: "Anmelden",
     login_subtitle: "Willkommen zurück!",
     login_data: "ANMELDEDATEN",
@@ -682,12 +791,16 @@ const translations = {
     disclaimer: "Ihre Daten.",
     login_error: "Fehler",
     wrong_credentials: "Falsch.",
+
+    // Регистрация
     register_title: "Konto erstellen",
     register_subtitle: "Treten Sie Orbit bei.",
     profile_section: "IHR PROFIL",
     name: "Name",
     username: "Benutzername",
     create_account: "Erstellen",
+
+    // Настройки
     settings: "Einstellungen",
     notifications: "Benachrichtigungen",
     language: "Sprache",
@@ -716,6 +829,8 @@ const translations = {
     theme_purple: "Lila",
     theme_blue: "Blau",
     theme_green: "Grün",
+
+    // Профиль
     profile: "Profil",
     information: "INFO",
     in_network: "Online",
@@ -729,6 +844,8 @@ const translations = {
     note_private: "Privat",
     member_since: "Mitglied seit",
     profile_joined: "Mitglied seit",
+
+    // Мастерская / Сервера
     workshop: "Werkstatt",
     invite: "Einladen",
     information_section: "INFO",
@@ -743,9 +860,16 @@ const translations = {
     members_search: "Suchen",
     members_not_found: "Nicht gefunden",
     members_all: "Alle",
+
+    // Чаты / Сообщения
+    messages: "Nachrichten",
+    search_messages: "Suchen",
+    add_friends: "Hinzufügen",
     chat_start: "Beginn des Gesprächs",
     chat_write_first: "Schreiben Sie.",
     chat_placeholder: "Schreiben an",
+
+    // Создание сервера
     create_server: "Server erstellen",
     create_server_subtitle: "Für Ihr Team.",
     upload_icon: "Symbol",
@@ -761,6 +885,8 @@ const translations = {
     for_community: "Community",
     for_community_sub: "Offen",
     create_server_footer: "Danach konfigurierbar.",
+
+    // Настройки сервера
     server_settings: "Servereinstellungen",
     server_desc: "Projekt-Server",
     members: "Mitglieder",
@@ -773,6 +899,8 @@ const translations = {
     delete_server: "Löschen",
     delete_warning: "Alles wird gelöscht.",
     enter_new_name: "Neuer Name",
+
+    // Premium
     premium_subtitle: "Neue Umlaufbahn.",
     files_50mb: "50MB",
     emoji: "Emoji",
@@ -790,6 +918,8 @@ const translations = {
     glow: "Leuchten",
     with_love: "Mit Liebe",
     autorenewal: "Auto-Verlängerung",
+
+    // Оплата и Успех
     payment_title: "Zahlung",
     payment_subtitle: "Kartendaten",
     card_number: "Nummer",
@@ -801,11 +931,12 @@ const translations = {
     success_title: "Erfolg!",
     success_subtitle: "Premium abonniert.",
     go_home: "Startseite",
+
+    // Рамки
     frames_title: "Rahmen",
     frames_premium_only: "Nur Premium",
-    messages: "Nachrichten",
-    search_messages: "Suchen",
-    add_friends: "Hinzufügen",
+
+    // Уведомления
     recent_activity: "Aktivität",
     friend_request: "Anfrage",
     accept: "Annehmen",
@@ -822,13 +953,38 @@ const translations = {
   },
 };
 
-// Простой и надежный класс для переводов без внешних библиотек
 class SimpleI18n {
   constructor(translations) {
     this.translations = translations;
     this.locale = "ru";
     this.enableFallback = true;
     this.defaultLocale = "ru";
+
+    // Инициализируем только на клиенте (в браузере или на телефоне)
+    if (typeof window !== "undefined") {
+      this.init();
+    }
+  }
+
+  async init() {
+    try {
+      const savedLang = await AsyncStorage.getItem("appLanguage");
+      if (savedLang && this.translations[savedLang]) {
+        this.locale = savedLang;
+      }
+    } catch (e) {
+      console.log("Ошибка загрузки языка:", e);
+    }
+  }
+
+  async setLanguage(lang) {
+    if (!this.translations[lang]) return;
+    this.locale = lang;
+    try {
+      await AsyncStorage.setItem("appLanguage", lang);
+    } catch (e) {
+      console.log("Ошибка сохранения языка:", e);
+    }
   }
 
   t(key) {
@@ -837,12 +993,11 @@ class SimpleI18n {
     if (currentDict && currentDict[key]) {
       return currentDict[key];
     }
-    // Если ключа нет, ищем в языке по умолчанию
     const defaultDict = this.translations[this.defaultLocale];
     if (defaultDict && defaultDict[key]) {
       return defaultDict[key];
     }
-    return key; // Если вообще не нашли, возвращаем сам ключ
+    return key;
   }
 }
 

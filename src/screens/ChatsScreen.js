@@ -1,6 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { collection, onSnapshot, query } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,337 +12,273 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Circle, Path } from "react-native-svg";
-import { useApp } from "../context/AppContext";
+import { auth, db } from "../firebase/config";
+import { useTranslation } from "../hooks/useTranslation"; // <-- ПЕРЕВОДЫ
 
 const COLORS = {
-  bg: "#1C1C1E",
-  card: "#2C2C2E",
-  textMain: "#FFFFFF",
-  textSub: "#8E8E93",
-  border: "#3A3A3C",
-  purple: "#8A56FF",
+  bg: "#1E1F22",
+  textMain: "#F2F3F5",
+  textMuted: "#949BA4",
+  highlight: "#2B2D31",
+  accent: "#5865F2",
+  divider: "#313338",
 };
-
-const FRIENDS = [
-  { id: "1", name: "Александр", avatar: "А", isOnline: true },
-  { id: "2", name: "Мария", avatar: "М", isOnline: true },
-  { id: "3", name: "Иван", avatar: "И", isOnline: false },
-  { id: "4", name: "Елена", avatar: "Е", isOnline: true },
-];
-
-const CHATS = [
-  {
-    id: "1",
-    name: "КОНКУРС НА 5.000 РУБЛЕЙ",
-    lastMessage: "КОНКУРС НА 5.000 РУБЛЕЙ: УЖЕ С...",
-    time: "3 д.",
-    unread: 0,
-    isPinned: true,
-    icon: "ticket",
-  },
-  {
-    id: "2",
-    name: "Support",
-    lastMessage: "",
-    time: "2 мес.",
-    unread: 0,
-    icon: "support",
-  },
-  {
-    id: "3",
-    name: "Eminence @Atomic",
-    lastMessage: "Вы: Qq",
-    time: "2 мес.",
-    unread: 0,
-    isOnline: true,
-    avatar: "E",
-  },
-  {
-    id: "4",
-    name: "Письмо",
-    lastMessage: "Письмо: ОГО, на FLYER трибуна ГОЛ...",
-    time: "3 мес.",
-    unread: 0,
-    icon: "envelope",
-  },
-  {
-    id: "5",
-    name: "Moderation",
-    lastMessage: "",
-    time: "3 мес.",
-    unread: 0,
-    isOnline: true,
-    icon: "moderation",
-  },
-  {
-    id: "6",
-    name: "ForvoXX",
-    lastMessage: "Вы: 1 видео 🎥",
-    time: "5 мес.",
-    unread: 0,
-    avatar: "F",
-  },
-  {
-    id: "7",
-    name: "keka 💗 Devil",
-    lastMessage: "Вы: Наверно",
-    time: "5 мес.",
-    unread: 0,
-    avatar: "K",
-  },
-  {
-    id: "8",
-    name: "Shorito 💔 VEX",
-    lastMessage: "Вы: https://discord.gg/yushiko?event=...",
-    time: "5 мес.",
-    unread: 0,
-    avatar: "S",
-  },
-  {
-    id: "9",
-    name: "JuniperBot",
-    lastMessage: "JuniperBot: @Blake Привет! Рады вид...",
-    time: "5 мес.",
-    unread: 0,
-    icon: "bot",
-  },
-];
 
 export const ChatsScreen = () => {
   const router = useRouter();
-  const { themeColors } = useApp() || {};
-  const primary = themeColors?.primary || COLORS.purple;
-
+  const { t } = useTranslation(); // <-- ИНИЦИАЛИЗАЦИЯ
   const [searchText, setSearchText] = useState("");
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const q = query(collection(db, "users"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const usersList = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((u) => u.id !== auth.currentUser?.uid);
+      setUsers(usersList);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const filteredUsers = users.filter((u) =>
+    (u.displayName || "").toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const openChat = (recipientId) => {
+    const currentUserId = auth.currentUser.uid;
+    const chatId = [currentUserId, recipientId].sort().join("_");
+    router.push({ pathname: `/chat/${chatId}`, params: { recipientId } });
+  };
+
+  const getAvatarColor = (name) => {
+    const colors = [
+      "#F47FFF",
+      "#5865F2",
+      "#23A55A",
+      "#FAA61A",
+      "#EB459E",
+      "#00B0F4",
+    ];
+    const index = (name?.length || 0) % colors.length;
+    return colors[index];
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Сообщения</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      {/* ВЕРХНЯЯ ШАПКА С КНОПКОЙ НАЗАД И ЗАГОЛОВКОМ */}
+      <View style={styles.headerFullWidth}>
+        <View style={styles.headerTopRow}>
+          {/* Кнопка Назад */}
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.replace("/workshop")}
+          >
+            <Ionicons name="chevron-back" size={26} color={COLORS.textMain} />
+          </TouchableOpacity>
 
-      {/* Поиск и Добавить */}
-      <View style={styles.topRow}>
-        <View style={styles.searchContainer}>
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Circle
-              cx={11}
-              cy={11}
-              r={8}
-              stroke={COLORS.textSub}
-              strokeWidth={2}
-            />
-            <Path
-              d="M21 21l-4.35-4.35"
-              stroke={COLORS.textSub}
-              strokeWidth={2}
-              strokeLinecap="round"
-            />
-          </Svg>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Поиск"
-            placeholderTextColor={COLORS.textSub}
-            value={searchText}
-            onChangeText={setSearchText}
-          />
+          {/* Заголовок с переводом */}
+          <Text style={styles.headerTitle}>
+            {t({
+              ru: "Сообщения",
+              en: "Messages",
+              es: "Mensajes",
+              fr: "Messages",
+              de: "Nachrichten",
+            })}
+          </Text>
+
+          {/* Иконка почты */}
+          <TouchableOpacity style={styles.iconBtn}>
+            <Ionicons name="mail" size={20} color={COLORS.textMuted} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.addFriendButton}>
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"
-              stroke="#FFF"
-              strokeWidth={2}
-              strokeLinecap="round"
+
+        <View style={styles.searchRow}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search" size={18} color={COLORS.textMuted} />
+            <TextInput
+              placeholder={t({
+                ru: "Поиск пользователей...",
+                en: "Search users...",
+                es: "Buscar usuarios...",
+                fr: "Rechercher des utilisateurs...",
+                de: "Benutzer suchen...",
+              })}
+              placeholderTextColor={COLORS.textMuted}
+              style={styles.searchInput}
+              value={searchText}
+              onChangeText={setSearchText}
             />
-            <Circle cx={8.5} cy={7} r={4} stroke="#FFF" strokeWidth={2} />
-            <Path
-              d="M20 8v6M23 11h-6"
-              stroke="#FFF"
-              strokeWidth={2}
-              strokeLinecap="round"
-            />
-          </Svg>
-          <Text style={styles.addFriendText}>Добавить друзей</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.plusButton, { backgroundColor: primary }]}
-        >
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M12 5v14M5 12h14"
-              stroke="#FFF"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-            />
-          </Svg>
-        </TouchableOpacity>
+          </View>
+        </View>
       </View>
 
-      {/* Горизонтальный список друзей */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.friendsList}
-      >
-        {FRIENDS.map((friend) => (
-          <TouchableOpacity
-            key={friend.id}
-            style={styles.friendAvatarContainer}
-          >
-            <View style={styles.friendAvatar}>
-              <Text style={styles.friendAvatarText}>{friend.avatar}</Text>
-              {friend.isOnline && <View style={styles.onlineDot} />}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Список чатов */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.chatsList}
-      >
-        {CHATS.map((chat) => (
-          <TouchableOpacity
-            key={chat.id}
-            style={[styles.chatItem, chat.isPinned && styles.chatItemPinned]}
-            onPress={() => router.push(`/chat/${chat.id}`)} // <-- ДОБАВЛЕН ПЕРЕХОД
-          >
-            <View style={styles.chatAvatar}>
-              {chat.avatar ? (
-                <View style={styles.chatAvatarCircle}>
-                  <Text style={styles.chatAvatarText}>{chat.avatar}</Text>
-                </View>
-              ) : (
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
-                    stroke={COLORS.textSub}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+      {/* СПИСОК ПОЛЬЗОВАТЕЛЕЙ */}
+      <View style={styles.contentRow}>
+        <View style={styles.chatsListContainer}>
+          {loading ? (
+            <ActivityIndicator
+              size="large"
+              color={COLORS.accent}
+              style={{ marginTop: 50 }}
+            />
+          ) : filteredUsers.length === 0 ? (
+            <Text
+              style={{
+                color: COLORS.textMuted,
+                textAlign: "center",
+                marginTop: 20,
+              }}
+            >
+              {t({
+                ru: "Пользователи не найдены. Пригласите друзей!",
+                en: "No users found. Invite friends!",
+                es: "No se encontraron usuarios. ¡Invita a amigos!",
+                fr: "Aucun utilisateur trouvé. Invitez des amis !",
+                de: "Keine Benutzer gefunden. Freunde einladen!",
+              })}
+            </Text>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 100 }}
+            >
+              {filteredUsers.map((u) => (
+                <TouchableOpacity
+                  key={u.id}
+                  style={styles.chatItem}
+                  onPress={() => openChat(u.id)}
+                >
+                  <View
+                    style={[
+                      styles.avatarCircle,
+                      {
+                        backgroundColor: getAvatarColor(u.displayName),
+                        width: 46,
+                        height: 46,
+                        borderRadius: 23,
+                        marginRight: 14,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.avatarText}>
+                      {(u.displayName || "?").charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.chatInfo}>
+                    <Text style={styles.chatName} numberOfLines={1}>
+                      {u.displayName ||
+                        t({
+                          ru: "Без имени",
+                          en: "No name",
+                          es: "Sin nombre",
+                          fr: "Sans nom",
+                          de: "Kein Name",
+                        })}
+                    </Text>
+                    <Text style={styles.chatMessage} numberOfLines={1}>
+                      {u.email ||
+                        t({
+                          ru: "Нет почты",
+                          en: "No email",
+                          es: "Sin correo",
+                          fr: "Pas d'e-mail",
+                          de: "Keine E-Mail",
+                        })}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chatbubble-outline"
+                    size={20}
+                    color={COLORS.textMuted}
                   />
-                </Svg>
-              )}
-            </View>
-            <View style={styles.chatInfo}>
-              <View style={styles.chatNameRow}>
-                <Text style={styles.chatName} numberOfLines={1}>
-                  {chat.name}
-                </Text>
-                <Text style={styles.chatTime}>{chat.time}</Text>
-              </View>
-              {chat.lastMessage ? (
-                <Text style={styles.chatLastMessage} numberOfLines={1}>
-                  {chat.lastMessage}
-                </Text>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      </View>
     </SafeAreaView>
   );
 };
 
+export default ChatsScreen;
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.bg },
-  header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 },
-  headerTitle: { color: "#FFF", fontSize: 26, fontWeight: "bold" },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    gap: 8,
+  headerFullWidth: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
   },
-  searchContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  searchInput: { flex: 1, color: "#FFF", fontSize: 14, marginLeft: 8 },
-  addFriendButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.card,
-    paddingHorizontal: 12,
-    height: 44,
-    borderRadius: 12,
-    gap: 6,
-  },
-  addFriendText: { color: "#FFF", fontSize: 13, fontWeight: "500" },
-  plusButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  friendsList: { paddingHorizontal: 16, gap: 12, marginBottom: 16 },
-  friendAvatarContainer: {},
-  friendAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.card,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  friendAvatarText: { color: "#FFF", fontSize: 20, fontWeight: "bold" },
-  onlineDot: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#4ADE80",
-    borderWidth: 2,
-    borderColor: COLORS.bg,
-  },
-  chatsList: { paddingHorizontal: 16 },
-  chatItem: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
-  chatItemPinned: {
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    marginBottom: 8,
-  },
-  chatAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.card,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  chatAvatarCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#3A3A3C",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  chatAvatarText: { color: "#FFF", fontSize: 18, fontWeight: "bold" },
-  chatInfo: { flex: 1 },
-  chatNameRow: {
+  headerTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 2,
+    marginBottom: 16,
   },
-  chatName: { color: "#FFF", fontSize: 15, fontWeight: "600", flex: 1 },
-  chatTime: { color: COLORS.textSub, fontSize: 11, marginLeft: 8 },
-  chatLastMessage: { color: COLORS.textSub, fontSize: 13 },
+  backBtn: {
+    padding: 4,
+  },
+  headerTitle: {
+    color: COLORS.textMain,
+    fontSize: 24,
+    fontWeight: "800",
+    flex: 1,
+    textAlign: "center",
+    marginLeft: 10, // Чтобы компенсировать кнопку назад
+  },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  searchBox: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#2B2D31",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    color: "#FFF",
+    marginLeft: 8,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    backgroundColor: "#2B2D31",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  contentRow: { flex: 1 },
+  chatsListContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
+  chatItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    marginBottom: 8,
+    width: "100%",
+    backgroundColor: COLORS.highlight,
+  },
+  avatarCircle: { justifyContent: "center", alignItems: "center" },
+  avatarText: { color: "#FFF", fontWeight: "bold", fontSize: 18 },
+  chatInfo: { flex: 1, justifyContent: "center", overflow: "hidden" },
+  chatName: {
+    color: COLORS.textMain,
+    fontSize: 16,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+  chatMessage: { color: COLORS.textMuted, fontSize: 13, marginTop: 3 },
 });

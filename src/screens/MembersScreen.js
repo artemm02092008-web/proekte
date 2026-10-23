@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
+import { AnimatedLogo } from "../components/AnimatedLogo"; // <-- ДОБАВИЛИ ИМПОРТ ЛОГОТИПА
 import { useApp } from "../context/AppContext";
 import { db } from "../firebase/config";
 
@@ -23,8 +24,6 @@ const COLORS = {
   inputBg: "#1A1920",
   online: "#00C853",
 };
-
-// Убрали интерфейс, так как это JS файл
 
 export default function MembersScreen({ onStartCall, onOpenChat, onBack }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -162,7 +161,11 @@ export default function MembersScreen({ onStartCall, onOpenChat, onBack }) {
           </Svg>
           <Text style={styles.backText}>Назад</Text>
         </TouchableOpacity>
-        <Text style={styles.logoText}>OPIUM</Text>
+
+        {/* ЗАМЕНИЛИ ТЕКСТ OPIUM НА ЛОГОТИП */}
+        <View style={styles.logoContainer}>
+          <AnimatedLogo size={28} />
+        </View>
       </View>
 
       <View style={styles.titleContainer}>
@@ -225,7 +228,13 @@ const styles = StyleSheet.create({
   },
   backButton: { flexDirection: "row", alignItems: "center" },
   backText: { color: "#A3A2A8", fontSize: 16, marginLeft: 4 },
-  logoText: { color: COLORS.accent, fontWeight: "bold", letterSpacing: 1 },
+
+  // Стиль для контейнера логотипа
+  logoContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
   titleContainer: { paddingHorizontal: 16, marginTop: 8 },
   title: { fontSize: 28, fontWeight: "bold", color: COLORS.textMain },
   subtitle: { color: COLORS.textSub, fontSize: 13, marginTop: 4 },

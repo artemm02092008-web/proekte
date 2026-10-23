@@ -1,6 +1,7 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -14,8 +15,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AnimatedLogo } from "../components/AnimatedLogo"; // <-- ДОБАВЛЕН ИМПОРТ ЛОГОТИПА
+import { AnimatedLogo } from "../components/AnimatedLogo";
 import { useApp } from "../context/AppContext";
+import { db } from "../firebase/config";
 import i18n from "../i18n";
 
 export const WorkshopScreen = () => {
@@ -39,9 +41,27 @@ export const WorkshopScreen = () => {
   const [newChannelName, setNewChannelName] = useState("");
   const [channelType, setChannelType] = useState("general");
 
+  const [memberCount, setMemberCount] = useState(0);
+
   const primaryColor = themeColors?.primary || "#8A56FF";
 
-  // --- ЛОГИКА СВАЙПА ВЛЕВО ---
+  useEffect(() => {
+    if (!activeServer?.id) {
+      setMemberCount(0);
+      return;
+    }
+
+    const unsub = onSnapshot(doc(db, "servers", activeServer.id), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const members = data.members || [];
+        setMemberCount(members.length + 1);
+      }
+    });
+
+    return () => unsub();
+  }, [activeServer?.id]);
+
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
@@ -100,16 +120,15 @@ export const WorkshopScreen = () => {
     router.push(`/chat/${channelId}?name=${encodeURIComponent(channelName)}`);
   };
 
+  const openCall = (channelId, channelName) => {
+    router.push(`/call/${channelId}?name=${encodeURIComponent(channelName)}`);
+  };
+
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={20} color="#FFF" />
-            <Text style={styles.backText}>{i18n.t("back")}</Text>
-          </TouchableOpacity>
-
-          {/* ЗАМЕНА СТАРОЙ ИКОНКИ НА АНИМИРОВАННЫЙ ЛОГОТИП */}
+        {/* ШАПКА БЕЗ КНОПКИ НАЗАД */}
+        <View style={[styles.header, { justifyContent: "flex-end" }]}>
           <View style={styles.orbitIndicator}>
             <AnimatedLogo size={20} />
             <Text style={styles.orbitText}>ORBIT</Text>
@@ -178,14 +197,25 @@ export const WorkshopScreen = () => {
                 <View style={styles.serverStatus}>
                   <View style={styles.onlineDot} />
                   <Text style={styles.serverStatusText}>
-                    0 {i18n.t("in_network")} · 1
+                    {memberCount} {i18n.t("in_network")} · {memberCount}
                   </Text>
                 </View>
               </View>
               <Ionicons name="chevron-down" size={20} color="#FFF" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.inviteButton}>
+            <TouchableOpacity
+              style={styles.inviteButton}
+              onPress={() =>
+                router.push({
+                  pathname: "/invite",
+                  params: {
+                    serverId: activeServer?.id || "masters",
+                    serverName: activeServer?.name || "Мастерская",
+                  },
+                })
+              }
+            >
               <Feather name="user-plus" size={16} color={primaryColor} />
               <Text style={[styles.inviteText, { color: primaryColor }]}>
                 {i18n.t("invite")}
@@ -204,6 +234,7 @@ export const WorkshopScreen = () => {
                 </View>
               ) : (
                 <>
+                  {/* Секция info */}
                   <View style={styles.sectionHeader}>
                     <TouchableOpacity
                       style={{
@@ -253,6 +284,7 @@ export const WorkshopScreen = () => {
                     </View>
                   )}
 
+                  {/* Секция general */}
                   <View style={styles.sectionHeader}>
                     <TouchableOpacity
                       style={{
@@ -302,6 +334,7 @@ export const WorkshopScreen = () => {
                     </View>
                   )}
 
+                  {/* Секция voice */}
                   <View style={styles.sectionHeader}>
                     <TouchableOpacity
                       style={{
@@ -337,7 +370,7 @@ export const WorkshopScreen = () => {
                         voiceChannels.map((ch) => (
                           <TouchableOpacity
                             key={ch.id}
-                            onPress={() => openChat(ch.id, ch.name)}
+                            onPress={() => openCall(ch.id, ch.name)}
                             style={styles.channelRow}
                           >
                             <Text style={styles.channelText}>🔊 {ch.name}</Text>
@@ -452,7 +485,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#1A1A1E" },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 10,
@@ -579,7 +611,6 @@ const styles = StyleSheet.create({
   },
   tabAvatarText: { color: "#FFF", fontSize: 10, fontWeight: "bold" },
   tabAvatarImage: { width: 26, height: 26, borderRadius: 13 },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",

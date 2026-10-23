@@ -1,0 +1,6 @@
+node_modules
+node_modules_old
+android
+ios
+.git
+eas-archive-check

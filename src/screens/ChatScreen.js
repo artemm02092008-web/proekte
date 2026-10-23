@@ -1,17 +1,19 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import {
   addDoc,
   collection,
+  doc,
   onSnapshot,
   query,
   serverTimestamp,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,8 +21,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { useApp } from "../context/AppContext";
 import { db } from "../firebase/config";
+import { useCitiesGame } from "../hooks/useCitiesGame"; // <-- ИМПОРТ ИГРЫ
 
 const COLORS = {
   bg: "#0F0E13",
@@ -32,17 +39,43 @@ const COLORS = {
 };
 
 export default function ChatScreen({
-  visible,
   chatId,
   recipient,
   currentUserId,
   onClose,
 }) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { userData } = useApp() || {};
+
   const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
   const scrollViewRef = useRef(null);
 
-  // Загрузка сообщений из базы
+  const currentName = userData?.displayName || "Вы";
+
+  // Функция для отправки сообщений от бота
+  const sendBotMessage = async (botText) => {
+    const botMsg = {
+      chatId: chatId,
+      senderId: "orbit_bot",
+      senderName: "🎮 Игровой Бот",
+      text: botText,
+      createdAt: serverTimestamp(),
+      readBy: ["orbit_bot"],
+    };
+    await addDoc(collection(db, "messages"), botMsg);
+  };
+
+  // Подключаем игру
+  const { handleGameMessage } = useCitiesGame(
+    chatId,
+    currentUserId,
+    currentName,
+    sendBotMessage
+  );
+
+  // 1. СЛУШАЕМ СООБЩЕНИЯ
   useEffect(() => {
     if (!chatId) return;
 
@@ -66,19 +99,51 @@ export default function ChatScreen({
     return () => unsubscribe();
   }, [chatId]);
 
-  if (!visible || !recipient) return null;
+  // 2. ОТМЕЧАЕМ СООБЩЕНИЯ КАК ПРОЧИТАННЫЕ
+  useEffect(() => {
+    if (!chatId || !currentUserId) return;
+
+    const q = query(collection(db, "messages"), where("chatId", "==", chatId));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docs.forEach(async (docSnap) => {
+        const data = docSnap.data();
+        const readBy = data.readBy || [];
+
+        if (
+          data.senderId !== currentUserId &&
+          !readBy.includes(currentUserId)
+        ) {
+          await updateDoc(doc(db, "messages", docSnap.id), {
+            readBy: [...readBy, currentUserId],
+          });
+        }
+      });
+    });
+
+    return () => unsubscribe();
+  }, [chatId, currentUserId]);
+
+  if (!recipient) return null;
 
   const sendMessage = async () => {
-    if (text.trim() === "") return;
+    const messageText = text.trim();
+    if (messageText === "") return;
 
+    setText("");
+
+    // 1. Проверяем, не игра ли это
+    const isGameHandled = await handleGameMessage(messageText);
+    if (isGameHandled) return;
+
+    // 2. Обычное сообщение
     const newMessage = {
       chatId: chatId,
       senderId: currentUserId,
-      text: text.trim(),
+      senderName: currentName,
+      text: messageText,
       createdAt: serverTimestamp(),
+      readBy: [currentUserId],
     };
-
-    setText("");
 
     try {
       await addDoc(collection(db, "messages"), newMessage);
@@ -88,125 +153,152 @@ export default function ChatScreen({
     }
   };
 
+  const goHome = () => {
+    router.replace("/workshop");
+  };
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={onClose}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M15 19l-7-7 7-7"
-                stroke="#A3A2A8"
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-            <Text style={styles.backText}>Назад</Text>
-          </TouchableOpacity>
-          <View style={styles.recipientInfo}>
-            <Text style={styles.recipientName}>{recipient.name}</Text>
-            <Text style={styles.recipientStatus}>@{recipient.username}</Text>
-          </View>
-          <View style={styles.headerSpacing} />
+    <SafeAreaView style={styles.container} edges={["left", "right"]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+        <TouchableOpacity style={styles.backButton} onPress={onClose}>
+          <Ionicons name="chevron-back" size={24} color="#A3A2A8" />
+          <Text style={styles.backText}>Назад</Text>
+        </TouchableOpacity>
+
+        <View style={styles.recipientInfo}>
+          <Text style={styles.recipientName} numberOfLines={1}>
+            {recipient.displayName || "Пользователь"}
+          </Text>
+          <Text style={styles.recipientStatus} numberOfLines={1}>
+            @{recipient.username || "user"}
+          </Text>
         </View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.keyboardView}
-        >
-          <ScrollView
-            ref={scrollViewRef}
-            contentContainerStyle={
-              messages.length === 0
-                ? styles.emptyMessagesList
-                : styles.messagesList
-            }
-            onContentSizeChange={() =>
-              scrollViewRef.current?.scrollToEnd({ animated: false })
-            }
-          >
-            {messages.length === 0 ? (
-              <View style={styles.emptyStateContainer}>
-                <Text style={styles.emptyStateTitle}>
-                  Это начало вашей переписки
-                </Text>
-                <Text style={styles.emptyStateSubtitle}>
-                  Напишите первое сообщение.
-                </Text>
-              </View>
-            ) : (
-              messages.map((msg) => {
-                const isMe = msg.senderId === currentUserId;
-                const time = msg.createdAt
-                  ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString(
-                      [],
-                      { hour: "2-digit", minute: "2-digit" }
-                    )
-                  : "...";
+        <TouchableOpacity style={styles.homeButton} onPress={goHome}>
+          <Ionicons name="home-outline" size={22} color="#A3A2A8" />
+        </TouchableOpacity>
+      </View>
 
-                return (
-                  <View
-                    key={msg.id}
-                    style={
-                      isMe
-                        ? [styles.messageRow, styles.myRow]
-                        : [styles.messageRow, styles.theirRow]
-                    }
-                  >
-                    <View
-                      style={
-                        isMe
-                          ? [styles.bubble, styles.myBubble]
-                          : [styles.bubble, styles.theirBubble]
-                      }
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={
+            messages.length === 0
+              ? styles.emptyMessagesList
+              : styles.messagesList
+          }
+          onContentSizeChange={() =>
+            scrollViewRef.current?.scrollToEnd({ animated: false })
+          }
+          keyboardShouldPersistTaps="handled"
+        >
+          {messages.length === 0 ? (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateTitle}>
+                Это начало вашей переписки
+              </Text>
+              <Text style={styles.emptyStateSubtitle}>
+                Напишите первое сообщение. Или сыграйте в города: /города
+              </Text>
+            </View>
+          ) : (
+            messages.map((msg) => {
+              const isMe = msg.senderId === currentUserId;
+              const isBot = msg.senderId === "orbit_bot";
+              const time = msg.createdAt
+                ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString(
+                    [],
+                    { hour: "2-digit", minute: "2-digit" }
+                  )
+                : "...";
+
+              const isReadByOther = msg.readBy && msg.readBy.length > 1;
+
+              return (
+                <View
+                  key={msg.id}
+                  style={[
+                    styles.messageRow,
+                    isMe ? styles.myRow : styles.theirRow,
+                  ]}
+                >
+                  {!isMe && (
+                    <Text
+                      style={[styles.senderName, isBot && { color: "#FACC15" }]}
                     >
-                      <Text style={styles.messageText}>{msg.text}</Text>
-                      <View style={styles.timeAndStatusRow}>
-                        <Text style={styles.timestampText}>{time}</Text>
-                      </View>
+                      {msg.senderName || "Пользователь"}
+                    </Text>
+                  )}
+
+                  <View
+                    style={[
+                      styles.bubble,
+                      isMe ? styles.myBubble : styles.theirBubble,
+                      isBot && {
+                        backgroundColor: "#2C2C35",
+                        borderColor: "#FACC15",
+                        borderWidth: 1,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.messageText}>{msg.text}</Text>
+                    <View style={styles.timeAndStatusRow}>
+                      <Text style={styles.timestampText}>{time}</Text>
+
+                      {isMe && !isBot && (
+                        <Ionicons
+                          name="checkmark-done"
+                          size={14}
+                          color={
+                            isReadByOther ? "#4ADE80" : "rgba(255,255,255,0.4)"
+                          }
+                          style={{ marginLeft: 4 }}
+                        />
+                      )}
                     </View>
                   </View>
-                );
-              })
-            )}
-          </ScrollView>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder={`Написать в ${recipient.name}`}
-              placeholderTextColor="#4E4D53"
-              value={text}
-              onChangeText={setText}
-              multiline
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+
+        <View
+          style={[
+            styles.inputContainer,
+            { paddingBottom: Math.max(insets.bottom, 12) },
+          ]}
+        >
+          <TextInput
+            style={styles.input}
+            placeholder="Написать... (или /города)"
+            placeholderTextColor="#4E4D53"
+            value={text}
+            onChangeText={setText}
+            multiline
+          />
+          <TouchableOpacity
+            style={
+              text.trim().length > 0
+                ? [styles.sendButton, styles.sendButtonActive]
+                : styles.sendButton
+            }
+            onPress={sendMessage}
+          >
+            <Ionicons
+              name="send"
+              size={18}
+              color="#FFF"
+              style={{ marginLeft: 2 }}
             />
-            <TouchableOpacity
-              style={
-                text.trim().length > 0
-                  ? [styles.sendButton, styles.sendButtonActive]
-                  : styles.sendButton
-              }
-              onPress={sendMessage}
-            >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"
-                  stroke="#FFF"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -216,19 +308,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#1A1920",
   },
-  backButton: { flexDirection: "row", alignItems: "center", width: 80 },
-  backText: { color: "#A3A2A8", fontSize: 16, marginLeft: 4 },
-  recipientInfo: { alignItems: "center" },
-  recipientName: { color: COLORS.textMain, fontWeight: "bold", fontSize: 16 },
-  recipientStatus: { color: COLORS.accent, fontSize: 12, marginTop: 2 },
-  headerSpacing: { width: 80 },
+  backButton: { flexDirection: "row", alignItems: "center", width: 70 },
+  backText: { color: "#A3A2A8", fontSize: 14, marginLeft: 4 },
+  recipientInfo: { alignItems: "center", flex: 1 },
+  recipientName: { color: COLORS.textMain, fontWeight: "bold", fontSize: 15 },
+  recipientStatus: { color: COLORS.accent, fontSize: 11, marginTop: 2 },
+  homeButton: {
+    width: 70,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
   keyboardView: { flex: 1 },
-  messagesList: { padding: 16, paddingBottom: 24 },
+  messagesList: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 20 },
   emptyMessagesList: {
     flexGrow: 1,
     justifyContent: "center",
@@ -256,6 +352,13 @@ const styles = StyleSheet.create({
   messageRow: { flexDirection: "row", marginBottom: 14, width: "100%" },
   myRow: { justifyContent: "flex-end" },
   theirRow: { justifyContent: "flex-start" },
+  senderName: {
+    color: COLORS.accent,
+    fontSize: 12,
+    marginBottom: 4,
+    marginLeft: 4,
+    fontWeight: "600",
+  },
   bubble: {
     maxWidth: "75%",
     borderRadius: 16,
@@ -281,30 +384,32 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingTop: 10,
     backgroundColor: "#121118",
     borderTopWidth: 1,
     borderTopColor: "#1A1920",
+    width: "100%",
   },
   input: {
     flex: 1,
     backgroundColor: COLORS.inputBg,
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     color: COLORS.textMain,
     fontSize: 15,
     maxHeight: 100,
+    marginRight: 10,
   },
   sendButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#232229",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 10,
+    flexShrink: 0,
   },
   sendButtonActive: { backgroundColor: COLORS.accent },
 });
